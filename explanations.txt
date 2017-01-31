@@ -1,0 +1,346 @@
+--------------------------------------------------------------------------------------------
+Lesson 1
+--------------------------------------------------------------------------------------------
+
+Починаємо з index.html з підключеними стилями і скриптами lodash i angular.
+Додаємо ng-app="app" в тег <html>. Також створимо js/app.js і проініціалізуємо ангулар: angular.module('app', []);
+Не забуваємо підключити скрипт js/app.js
+
+Додамо трохи верстки. В <header> вставимо тег <h1>Trello</h1>.
+
+Вся наша аплікуха розміщується в <section class='lists-container'>,
+додаємо їй контроллер ng-controller='listsCtrl as listsCtrl'. Такий "controller as" синтаксис дозволяє нам
+в контроллерах звертатися не через $scope, а через this.
+В цій секції створюємо рядок row в якому буде ще одна секція section, яка буде відтворювати наші листи (репітор)
+<section class='list list-inline' ng-repeat='list in listsCtrl.lists'>.
+Назвою кожного листа буде <h2>{{list.listName}}</h2>.
+
+Для всього вище описаного створюємо js/controllers/listsCtrl.js, не забуваємо підключити в index.html.
+Створюємо контроллер
+angular.module('app').controller('listsCtrl', function(){});
+В функції задаємо масив значень, для відображення <h2>{{list.listName}}</h2>, тобто
+this.lists = [
+    {
+        listName: 'List1'
+    },
+    {
+            listName: 'List2'
+    }
+];
+так ми отримаємо два листа з назвами List1 i List2.  Але працювати з данними в контроллері це неправильно!
+Тому створимо listFactory і заінжектимо його в контроллері
+function (listFactory) {
+    this.lists = listFactory.getLists();
+}
+Тобто в фабриці буде метод getLists, який буде повертати нам список листів.
+Створюємо фабрику js/factories/listFactory.js. Опишемо її:
+angular.module('app').factory('listFactory', function () {
+    var service = {};
+
+    return service;
+});
+Для чого service? Це наш обєкт, який ми будемо повертати наприкінці. Це для зручності, на випадок якщо
+обєкт великий.
+Створимо три обєкти в масиві
+var lists = [
+            {
+                id: 1,
+                listName: 'ToDo'
+            },
+            {
+                id: 2,
+                listName: 'Doing'
+            },
+            {
+                id: 3,
+                listName: "Done"
+            }
+        ];
+Далі, нам потрібно описати getLists, який ми викликаємо в listsCtrl
+рядком ( this.lists = listFactory.getLists(); )  :
+пишемо в listFactory функцію, яка буде повертати список листів
+service.getLists = function () {
+    return lists;
+};
+Таким чином ми виводимо три листа із назвами listName.
+А щоб не було "мигання", в тег <body> додаємо ng-cloak
+
+--------------------------------------------------------------------------------------------
+Lesson 2
+--------------------------------------------------------------------------------------------
+Додавання і видалення списку
+
+Створюємо новий лист: <section class="list new-list list-inline">
+Також створюємо форму, і ми хочемо щоб при відправці форми виконувався метод addList контроллера listsCtrl:
+<form ng-submit="listsCtrl.addList()">
+Також в формі є інпут: <input type="text" ng-model="listsCtrl.listName">.
+Тепер ми повинні додати метод addLists() в listsCtrl. Для цього напишемо:
+    this.addList = function () {
+        listFactory.addList(this.listName);
+    };
+Метод addList викликаємо із фабрики listFactory. в фабриці listFactory ми описуємо метод addList:
+    service.addList = function (listName) {
+        lists.push({
+           id: _.uniqueId('list_'),
+           listName: listName
+        });
+    };
+Тепер ми в масив lists push-имо новий ліст, з унікальним id (_.uniqueId - метод lodash) і префіксом (list_).
+І щоб очистити інпут після створення нового листа, в listsCtrl.js в метод addList додаємо код
+    this.listName = ''; // clear input after added data
+Так ми реалізували додавання нових листів.
+
+Тепер реалізуємо видалення листів.
+Починаємо з index.html
+    <a ng-click="listCtrl.removeList(list)" class="hand">
+        <div class="remove remove-list"></div>
+    </a>
+Ми створюємо новий контроллер listCtrl з методом .removeList. Ми могли б використати готовий контроллер listsCtrl,
+але створюємо новий, бо це повинен бути контроллер конкретного списку(який ми хочемо видалити), а не усіх списків.
+Створюємо і додаємо скрипт контроллера в index.html. Опишемо наш новий контроллер listCtrl
+    angular.module('app')
+        .controller('listCtrl', function () {
+
+        }
+Опишемо там видалення листа:
+    this.removeList = function (list) {
+        listFactory.removeList(list);
+    };
+Контроллер не виконує ніякої роботи з данними. Робота з данними відбувається в фабриці.
+listFactory інжектимо в функцію. А в самій listFactory описуємо метод removeList:
+        service.removeList = function (list) {
+            _.pull(lists, list);
+        };
+Для видалення використовуємо функцію lodash
+_.pull шукає в масиві lists елемент list і видаляє його.
+Так ми реалізували видалення листа.
+
+
+--------------------------------------------------------------------------------------------
+Lesson 3
+--------------------------------------------------------------------------------------------
+
+Робота з картками.
+
+Взаємодія з картками буде відбуватися в фабриці cardFactory.
+    angular.module('app')
+        .factory('cardFactory', function () {
+            var service = {};
+
+        }
+І опишемо масив cards, який містить картки. Обєкт буде виглядати так:
+    {
+        id: 1,
+        description: 'Fix bug in player',
+        list_id: 1
+    },
+Щоб знати, до якого списку привязана картка, вводимо поняття list_id.
+Щоб повернути всі картки, які привязані до певного ліста, створюємо в фабриці метод
+        service.getCards = function (list) {
+            return _.filter(cards, { list_id: list.id });
+        };
+Щоб повернути всі картки з масиву cards, в яких list.id такий, як ми передали, використаємо функцію lodash
+_.filter, яка з масиву cards витягує ті елементи, в яких list_id дорівнює переданому list_id.
+Ну і не забуваємо прописати репітер в index.html (щоб виводити всі карточки):
+        <div class="card"
+             ng-controller="cardCtrl as cardCtrl"
+             ng-repeat="card in listCtrl.getCards(list)">
+І в кард-контроллері cardCtrl додамо метод:
+        this.getCards = function (list) {
+            return cardFactory.getCards(list);
+        };
+і викликаємо метод із фабрики. Фабрику cardFactory треба заінжектити в функції.
+
+Реалізуємо можливість додавання власної картки.
+        <section class="new-card">
+            <form ng-submit="listCtrl.createCard(list)">
+                <input type="text"
+                       ng-model="listCtrl.cardDescription"
+                       class="card-input"
+                       placeholder="New card">
+            </form>
+        </section>
+Щоб додавання картки працювало, ми маємо описати метод createCard. Описуємо його в listCtrl:
+        this.createCard = function (list) {
+            cardFactory.createCard(list, this.cardDescription);
+        };
+
+Описуємо метод createCard в cardFactory:
+        service.createCard = function (list, cardDescription) {
+          cards.push({
+              id: _.uniqueId('card_'),
+              description: cardDescription,
+              list_id: list.id
+          });
+        };
+Id-шка нашо картки буде згенерована за допомогою метода lodash  _.uniqueId і буде містити префікс card_.
+Також картка буде мати правязку до котрогось з листів за допомогою list_id.
+Очистимо поле інпута кодом this.cardDescription = '' в методі createCard  контроллера listCtrl.
+
+
+--------------------------------------------------------------------------------------------
+Lesson 4
+--------------------------------------------------------------------------------------------
+
+Видалення і оновлення карточок
+
+Для видалення картки в index.html опишемо метод deleteCard
+    <div ng-click="cardCtrl.deleteCard(card)"
+         class="remove-small remove-card hand">
+    </div>
+Нам потрібно створити cardCtrl. Це логічно, коли дії з конкретною карткою (видалення, оновлення, редагування картки)
+будуть відбуватися в окремому контроллері. Тому створюємо js/controllers/cardCtrl.js і не забуваємо його підключити.
+    angular.module('app')
+        .controller('cardCtrl', function () {
+            this.deleteCard = function (card) {
+                cardFactory.deleteCard(card);
+            };
+        }
+Передаємо в cardFactory метод deleteCard. Саме в фабриці будуть відбуватися всі дії по видаленню картки. Тому в
+функцію потрібно підмішати (заінжектити) cardFactory:
+   function (cardFactory)
+
+Тепер в фабриці cardFactory опишемо метод для видалення картки:
+        service.deleteCard = function (card) {
+            return _.pull(cards, card);
+        };
+За допомогою lodash метода _.pull ми з масиву cards видаляємо наш обєкт card.
+
+Для редагування картки, в index.html створюємо дів
+    <div ng-click="cardCtrl.editCard(card)"
+         class="edit-small edit-card hand">
+    </div>
+В cardCtrl ми опишемо метод editCard. Але спочатку створимо змінну, яка буде показувати в якому стані зараз
+наша картка (редагується картка в даний момент чи ні):
+this.isEditing = false; (в початковий момент картка не редагується)
+Також створимо змінну, в якій будемо зберігати данні по картці, яку ми редагуємо:
+this.editingCard = null; (поки що ніяких даних про редагування у нас немає, бо картка не редагується).
+Тож тепер опишемо метод editCard:
+    this.editCard = function (card) {
+        this.isEditing = true;
+        this.editingCard = angular.copy(card);
+    };
+Як тільки ми розпочали редагування картки - змінна isEditing переходить в стан true. А для editingCard
+робимо angular.copy(card) картки, яку ми отримали. Для чого робити angular.copy(card)? Якщо ми зробимо якісь зміни,
+а потім захочемо повернути все назад - ми просто видалимо editingCard. А так ми робимо копію обєкта і працюємо з
+його копією. Бо якщо не зробити angular.copy(card), то видалення картки під час редагування (відміна редагування)
+призвела би до видалення картки взагалі.
+
+Тепер в index.html потрібно додати логіку, яка буде завязана на змінній isEditing.
+Використаємо ng-if="!cardCtrl.isEditing" і ng-if="cardCtrl.isEditing" для двох випадків: коли картка редагується
+і коли вона не редагується.
+Якщо картка редагується, то в index.html буде такий код:
+    <div ng-if="cardCtrl.isEditing">
+        <form ng-submit="cardCtrl.updateCard()">
+            <input type="text"
+                   ng-model="cardCtrl.editingCard.description"
+                   close-editing
+                   is-editing="cardCtrl.isEditing">
+        </form>
+    </div>
+Тобто ми передаємо в інпут опис картки cardCtrl.editingCard.description. Опишемо в cardCtrl метод оновлення картки:
+
+    this.updateCard = function () {
+        cardFactory.updateCard(this.editingCard);
+    }
+викликаємо метод cardFactory.updateCard(this.editingCard);
+
+і тепер опишемо updateCard в фабриці cardFactory
+
+    service.updateCard = function (updatingCard) {
+        var card = _.findWhere(cards, { id: updatingCard.id });
+        card.description = updatingCard.description;
+        card.list_id = updatingCard.list_id;
+    };
+
+var card = _.findWhere(cards, { id: updatingCard.id })  - це картка, яку ми оновлюємо. Метод лодеша _.findWhere
+шукає в масиві cards нашу картку по id.
+Додамо this.editingCard = null і this.isEditing = false в метод updateCard нашого cardCtrl.
+
+
+--------------------------------------------------------------------------------------------
+Lesson 5
+--------------------------------------------------------------------------------------------
+
+Додавання select під час редагування картки + написання директиви
+
+
+В форму form ng-submit="cardCtrl.updateCard()" додамо селект, щоб мати можливість перенести картку
+в інший список (ліст)
+    <select class="select-list"
+         ng-model="cardCtrl.editingCard.list_id"
+         ng-change="cardCtrl.updateCard()"
+         ng-options="list.id as list.listName for list in listsCtrl.lists">
+    </select>
+Зауважимо, що ми будемо змінювати list_id у editingCard, коли ми вибираємо щось в селекті.
+ng-options - це те, з чого ми будемо вибирати картку.
+ng-options="list.id as list.listName for list in listsCtrl.lists" означає, що ми проходимо циклом по listsCtrl.lists
+і вибираємо всі list по list.id, а в лейблах будемо виводити listName.
+Якщо в listFactory в метод updateCard додати
+    card.list_id = updatingCard.list_id;
+то ми зможемо змінювати list_id(тобто список, до якого належить картка), а відповідно переміщати картки.
+Наприклад з "Doing" в "Done".
+
+Тепер напишемо директиву, яка під час редагування картки, по натиску кнопки Esc повинна закривати форму
+редагування і відміняти зміни.
+Створимо js/directives/closeEditing.js і не забуваємо підключити цей файл і index.html
+Опишемо цю директиву в файлі closeEditing.js:
+
+    angular.module('app')
+        .directive('closeEditing', function () {
+
+        }
+
+і ця директива буде повертати обєкт
+
+        return {
+            link: function (scope, element, attrs) {
+
+            }
+        }
+
+Директиву closeEditing повісимо на наш інпут в момент редагування.
+    <input type="text"
+       ng-model="cardCtrl.editingCard.description"
+       close-editing
+       >
+В index.html наша директива передається через тире, а не в camelCase: тобто  close-editing а не closeEditing.
+Тепер в нашій директиві створимо scope і передамо туди змінну isEditing:
+        scope: {
+            isEditing: '='
+        }
+Це означає що у нас буде двосторонній data-binding ('=').
+Також в інпут передамо is-editing="cardCtrl.isEditing",  для того щоб ми могли з директиви змінити isEditing.
+
+Опишемо подію натискання кнопки в директиві:
+    element.on('keyup', function (e) {
+
+    });
+
+Створимо змінну KEYS, яка буде обєктом і буде зберігати ключі тих букв, які ми натискаємо на клавіатурі.
+        var KEYS = {
+            ESCAPE: 27
+        };
+Зберігаємо ключ для кнопки escape, її код 27.
+
+Використовуємо lodash-метод _.isEqual для перевірки, чи натиснуто клавішу escape:
+        if (_.isEqual(e.keyCode, KEYS.ESCAPE)) {
+
+        }
+Тобто перевіряємо, чи код кнопки яку ми натиснули e.keyCode рівний коду кнопки ескейп KEYS.ESCAPE.
+Якщо це true, то scope.isEditing ми присвоюємо false, тобто закриваємо форму редагування.
+І застосовуємо scope.$apply() щоб застосувати наші зміни, тобто показати що змінився стан змінної isEditing.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
